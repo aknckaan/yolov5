@@ -1,0 +1,62 @@
+# https://github.com/open-mmlab/mmdetection/blob/master/docker/Dockerfile
+# base image is refering above offifical Dockerfile by MM Detection.
+#
+# when we use nvidia/cuda:11.0-devel-ubuntu20.04 as base dockerfile,
+# we hit following error:
+# - https://github.com/open-mmlab/mmdetection/issues/1893
+# we also try set FORCE_CUDA https://github.com/open-mmlab/mmdetection/pull/2097 ,
+# it does not work.
+#
+# to install MM Detection with ONNX+GPU, we need to follow the official instruction.
+# (prerequisite of Tutorial 8: Pytorch to ONNX https://mmdetection.readthedocs.io/en/latest/tutorials/pytorch2onnx.html)
+
+FROM nvcr.io/nvidia/l4t-ml:r32.6.1-py3
+# FORCE_CUDA is needed to build mmcv+onnx+gpu mode.
+
+
+ENV TORCH_CUDA_ARCH_LIST="6.0 6.1 7.0+PTX" \
+    TORCH_NVCC_FLAGS="-Xfatbin -compress-all" \
+    CMAKE_PREFIX_PATH="/usr/local/bin" \
+    FORCE_CUDA="1" \
+    LC_ALL="C.UTF-8" \
+    LANG="C.UTF-8" \
+    PATH="/home/wizard/.local/bin:$PATH" \
+    PYTHONPATH="/home/wizard/code/"
+
+RUN apt-get update \
+    && apt-get install -y ffmpeg libsm6 tree cmake libxext6 git wget ninja-build libglib2.0-0 libsm6 libxrender-dev libxext6 unzip libgeos-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create new user here is ideal. But it will raise permission error about cuda lib.
+
+# (Maybe we shoud change permission of some dir about cuda.)
+RUN mkdir -p /home/wizard/code/src/ \
+    && mkdir -p /home/wizard/vender/ 
+
+# install MMCV with ONNXRUNTIME G
+# mmcv is downloaded under /home/wizard/vender/mmcv.
+# we have to follow official instruction: https://github.com/open-mmlab/mmcv/blob/master/docs/deployment/onnxruntime_op.md/#how-to-build-custom-operators-for-onnx-runtime
+WORKDIR /home/wizard/vender/
+#RUN git clone https://github.com/open-mmlab/mmcv.git \
+
+#RUN wget https://github.com/microsoft/onnxruntime/releases/download/v1.9.0/onnxruntime-linux-x64-gpu-1.9.0.tgz \
+#    && tar -zxvf onnxruntime-linux-x64-gpu-1.9.0.tgz \
+#    && rm -rf onnxruntime-linux-x64-gpu-1.9.0.tgz \
+    # Normal `pip3 install onnxruntime-gpu` does not work for ARM base architecure.
+    # So download directry from https://nvidia.box.com .
+
+RUN wget https://nvidia.box.com/shared/static/bfs688apyvor4eo8sf3y1oqtnarwafww.whl -O onnxruntime_gpu-1.8.0-cp36-cp36m-linux_aarch64.whl \
+    && pip3 install onnxruntime_gpu-1.8.0-cp36-cp36m-linux_aarch64.whl
+
+
+ENV ONNXRUNTIME_DIR="/home/wizard/vender/onnxruntime-linux-x64-gpu-1.9.0"
+ENV LD_LIBRARY_PATH="${ONNXRUNTIME_DIR}/lib:${LD_LIBRARY_PATH}"
+
+COPY requirements.txt /home/wizard/code/requirements.txt
+
+
+RUN pip3 install --ignore-installed PyYAML>=5.3.1 \
+    && pip3 install -r /home/wizard/code/requirements.txt
+
+ENTRYPOINT bash

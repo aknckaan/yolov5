@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+    jetson:
+        container_name: jetson
+        image: ntt_strawberry_jetson
+        # currently mmdetection only run with GPU. 
+        runtime: nvidia
+        environment:
+        - NVIDIA_VISIBLE_DEVICES=all
+        build: 
+            context: ../../
+            dockerfile: environments/jetson/Dockerfile-jetson
+        shm_size: 4G
+        stdin_open: true
+        tty: true
+        volumes:
+            - ../../../yolov5:/home/wizard/code
+            - ../../../detection_data/:/volume/detection_data
