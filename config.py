@@ -47,21 +47,25 @@ class ConfigConverter:
         """
         OmegaConf.set_readonly(hydra_config, True)
 
-        try:
-            yolov5_hparams_path: Final = cwd / hydra_config.yolov5_hparams_path
+        if hydra_config.mode == "train":
+            try:
+                yolov5_hparams_path: Final = cwd / hydra_config.yolov5_hparams_path
+                yolov5_args_path: Final = cwd / hydra_config.yolov5_arguments_path
+                yolov5_datset_config: Final = cwd / hydra_config.yolov5_datset_config
+                yolov5_model_config: Final = cwd / hydra_config.yolov5_model_config
+
+
+            except Exception:
+                logging.error("config should have attribute `yolov5_args_path` and `yolov5_hparams_path`.")
+                raise ValueError()
+
+            conf = AttrDict(yaml.load(open(str(yolov5_args_path))))
+            conf.hyp = str(yolov5_hparams_path)
+            conf.data = str(yolov5_datset_config)
+            conf.cfg = str(yolov5_model_config)
+        else:
             yolov5_args_path: Final = cwd / hydra_config.yolov5_arguments_path
-            yolov5_datset_config: Final = cwd / hydra_config.yolov5_datset_config
-            yolov5_model_config: Final = cwd / hydra_config.yolov5_model_config
-
-
-        except Exception:
-            logging.error("config should have attribute `yolov5_args_path` and `yolov5_hparams_path`.")
-            raise ValueError()
-
-        conf = AttrDict(yaml.load(open(str(yolov5_args_path))))
-        conf.hyp = str(yolov5_hparams_path)
-        conf.data = str(yolov5_datset_config)
-        conf.cfg = str(yolov5_model_config)
+            conf = AttrDict(yaml.load(open(str(yolov5_args_path))))
 
         return conf
 
